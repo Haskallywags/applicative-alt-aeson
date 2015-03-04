@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<title>Applicatives, Alternative, and Aeson</title>
+
+<meta name="description" content="Applicatives, Alternative, and Aeson">
+
+  <meta name="author" content="Levi Schuck" />
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<link rel="stylesheet" href="reveal.js/css/reveal.css">
+  <link rel="stylesheet" href="reveal.js/css/theme/black.css" id="theme">
+
+
+<!-- For syntax highlighting -->
+  <link rel="stylesheet" href="reveal.js/lib/css/zenburn.css">
+
+
+<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+<script>
+  document.write( '<link rel="stylesheet" href="reveal.js/css/print/' +
+    ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) +
+    '.css" type="text/css" media="print">' );
+</script>
+
+<!--[if lt IE 9]>
+<script src="lib/js/html5shiv.js"></script>
+<![endif]-->
+</head>
+
+<body>
+
+<div class="reveal">
+
+<!-- Any section element inside of this container is displayed as a slide -->
+<div class="slides">
+
+<section>
+<h1>Applicatives, Alternative, and Aeson</h1>
+<h3>Levi Schuck</h3>
+<p>
+<h4>March 3, 2015</h4>
+</p>
+</section>
+
+
+<section id="currying" class="level1">
+<h1>Currying</h1>
+<section id="brief-intro-reminder" class="level2">
+<h2>Brief intro / reminder</h2>
+<p>It's hard to talk about applicatives if we don't talk about how functions are <em>applied</em>.</p>
+</section>
+<section id="not-that-curry." class="level2">
+<h2>Not that curry.</h2>
+<figure>
+<img src="images/curry.jpg" />
+</figure>
+</section>
+<section id="maybe-this-one" class="level2">
+<h2>Maybe this one?</h2>
+<figure>
+<img src="images/math-curry.png" />
+</figure>
+<p>Well, it's kinda mathy..</p>
+</section>
+<section id="haskell-example" class="level2">
+<h2>Haskell example</h2>
+<p>Let's try a Haskell syntax approach.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">append x y <span class="fu">=</span> x <span class="fu">++</span> y</code></pre>
+<p>Let's start with http</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">http x <span class="fu">=</span> <span class="st">&quot;http://&quot;</span> <span class="fu">++</span> x</code></pre>
+</section>
+<section id="but-we-can-do-better" class="level2">
+<h2>But we can do better!</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">append x y <span class="fu">=</span> x <span class="fu">++</span> y</code></pre>
+<p>What if.. we rewrite this function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">http x <span class="fu">=</span> append <span class="st">&quot;http://&quot;</span> x</code></pre>
+<p>Okay, but where does currying come in?</p>
+</section>
+<section id="currying-http" class="level2">
+<h2>Currying http</h2>
+<p>So, with the following:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">append x y <span class="fu">=</span> x <span class="fu">++</span> y
+http x <span class="fu">=</span> append <span class="st">&quot;http://&quot;</span> x</code></pre>
+<p>We could rewrite http to be infinitesimally shorter!</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">append x y <span class="fu">=</span> x <span class="fu">++</span> y
+http <span class="fu">=</span> append <span class="st">&quot;http://&quot;</span></code></pre>
+</section>
+<section id="where-did-the-x-go" class="level2">
+<h2>Where did the <code>x</code> go?</h2>
+<figure>
+<img src="images/massimo.jpg" />
+</figure>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">http <span class="fu">=</span> append <span class="st">&quot;http://&quot;</span></code></pre>
+</section>
+<section id="the-types-are-still-the-same" class="level2">
+<h2>The types are still the same</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">http x <span class="fu">=</span> append <span class="st">&quot;http://&quot;</span> x
+<span class="ot">http ::</span> [<span class="dt">Char</span>] <span class="ot">-&gt;</span> [<span class="dt">Char</span>]
+
+http&#39; <span class="fu">=</span> append <span class="st">&quot;http://&quot;</span>
+<span class="ot">http&#39; ::</span> [<span class="dt">Char</span>] <span class="ot">-&gt;</span> [<span class="dt">Char</span>]</code></pre>
+<p>We didn't specify the parameter x, yet the type still takes something.</p>
+<p><strong>Currying!</strong></p>
+</section>
+<section id="functions-of-x-on-the-wall-99-functions-of-x.-take-one-down-pass-it-around-98-functions-of-x-on-the-wall." class="level2">
+<h2>99 functions of x on the wall, 99 functions of x. Take one down, pass it around, 98 functions of x on the wall.</h2>
+<p>So, applying a parameter cuts the remaining parameters on the type</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">append                        ::</span> [a] <span class="ot">-&gt;</span> [a]    <span class="ot">-&gt;</span> [a]
+append <span class="st">&quot;http://&quot;</span><span class="ot">              ::</span>        [<span class="dt">Char</span>] <span class="ot">-&gt;</span> [<span class="dt">Char</span>]
+append <span class="st">&quot;http://&quot;</span> <span class="st">&quot;google.com&quot;</span><span class="ot"> ::</span>                  [<span class="dt">Char</span>]</code></pre>
+</section>
+<section id="but-back-to-currying" class="level2">
+<h2>But back to currying</h2>
+<p>So, we have established that by applying one parameter to a two-parameter function, we are left with a one parameter function.</p>
+<p>Haskell lets us skip parameters in our declaration if the types match up on the tail of the type.</p>
+</section>
+</section>
+<section id="applicative" class="level1">
+<h1>Applicative</h1>
+<section id="whats-an-ap..-ap...-applicative" class="level2">
+<h2>What's an ap.. ap... applicative?</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="dt">Functor</span> f) <span class="ot">=&gt;</span> <span class="dt">Applicative</span> f <span class="kw">where</span>  
+<span class="ot">    pure ::</span> a <span class="ot">-&gt;</span> f a  
+<span class="ot">    (&lt;*&gt;) ::</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre>
+<ul>
+<li><code>pure</code> lifts a value into the context of the Applicative functor.</li>
+<li><code>&lt;*&gt;</code> takes a functor of a function, a functor with a value, then applies the first function to the given value, and results in whatever the function decides.</li>
+</ul>
+</section>
+<section id="lets-start-with-maybe" class="level2">
+<h2>Let's start with Maybe</h2>
+<p>(Not the official implementation, but similar)</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Maybe</span> <span class="kw">where</span>
+    pure x <span class="fu">=</span> <span class="dt">Just</span> x
+    <span class="dt">Nothing</span> <span class="fu">&lt;*&gt;</span> _ <span class="fu">=</span> <span class="dt">Nothing</span>
+    _ <span class="fu">&lt;*&gt;</span> <span class="dt">Nothing</span> <span class="fu">=</span> <span class="dt">Nothing</span>
+    <span class="dt">Just</span> x <span class="fu">&lt;*&gt;</span> <span class="dt">Just</span> y <span class="fu">=</span> <span class="dt">Just</span> (x y)</code></pre>
+</section>
+<section id="example-program" class="level2">
+<h2>Example program</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> <span class="kw">do</span>                               <span class="co">-- λ&gt; main</span>
+    putStr <span class="st">&quot;a: &quot;</span>                        <span class="co">-- a: 1</span>
+    a&#39; <span class="ot">&lt;-</span> getLine                       <span class="co">-- b: 2</span>
+    <span class="kw">let</span> a <span class="fu">=</span> readMaybe<span class="ot"> a&#39; ::</span> <span class="dt">Maybe</span> <span class="dt">Int</span>   <span class="co">-- c: Just (1,2)</span>
+    putStr <span class="st">&quot;b: &quot;</span>                        <span class="co">-- λ&gt; main</span>
+    b&#39; <span class="ot">&lt;-</span> getLine                       <span class="co">-- a: Nope</span>
+    <span class="kw">let</span> b <span class="fu">=</span> readMaybe<span class="ot"> b&#39; ::</span> <span class="dt">Maybe</span> <span class="dt">Int</span>   <span class="co">-- b: 4</span>
+    <span class="kw">let</span> c <span class="fu">=</span> pure (,) <span class="fu">&lt;*&gt;</span> a <span class="fu">&lt;*&gt;</span> b        <span class="co">-- c: Nothing</span>
+    putStr <span class="st">&quot;c: &quot;</span>                        <span class="co">-- λ&gt; main</span>
+    putStrLn <span class="fu">$</span> show c                   <span class="co">-- a: 2</span>
+                                        <span class="co">-- b: Nope</span>
+                                        <span class="co">-- c: Nothing</span></code></pre>
+</section>
+<section id="what-about-the-fabeled" class="level2">
+<h2>What about the fabeled <code>&lt;$&gt;</code></h2>
+<p>It's actually just <code>fmap</code> from functor.</p>
+<p>What does <code>Maybe</code>'s <code>fmap</code> look like?</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span>  <span class="dt">Functor</span> <span class="dt">Maybe</span>  <span class="kw">where</span>
+    fmap _ <span class="dt">Nothing</span>       <span class="fu">=</span> <span class="dt">Nothing</span>
+    fmap f (<span class="dt">Just</span> a)      <span class="fu">=</span> <span class="dt">Just</span> (f a)</code></pre>
+<p>Remember when we used pure?</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> c <span class="fu">=</span> pure (,) <span class="fu">&lt;*&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+<span class="co">-- It can be rewritten as</span>
+<span class="kw">let</span> c <span class="fu">=</span> (,) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b</code></pre>
+</section>
+<section id="lets-step-through-this" class="level2">
+<h2>Let's step through this</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> a <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">1</span>
+    b <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">2</span>
+    c <span class="fu">=</span> (,) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+    c <span class="fu">=</span> <span class="dt">Just</span> (<span class="dv">1</span>,) <span class="fu">&lt;*&gt;</span> b
+    c <span class="fu">=</span> <span class="dt">Just</span> (<span class="dv">1</span>,<span class="dv">2</span>)</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> a <span class="fu">=</span> <span class="dt">Nothing</span>
+    b <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">4</span>
+    c <span class="fu">=</span> (,) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+    c <span class="fu">=</span> <span class="dt">Nothing</span> <span class="fu">&lt;*&gt;</span> b
+    c <span class="fu">=</span> <span class="dt">Nothing</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> a <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">4</span>
+    b <span class="fu">=</span> <span class="dt">Nothing</span>
+    c <span class="fu">=</span> (,) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+    c <span class="fu">=</span> <span class="dt">Just</span> (<span class="dv">4</span>,) <span class="fu">&lt;*&gt;</span> b
+    c <span class="fu">=</span> <span class="dt">Nothing</span></code></pre>
+</section>
+<section id="or..-really-more-like" class="level2">
+<h2>Or.. really more like</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> a <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">1</span>
+    b <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">2</span>
+    (,) <span class="fu">=</span> \x <span class="ot">-&gt;</span> \y <span class="ot">-&gt;</span> (x,y)
+    c <span class="fu">=</span> (,) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+    c <span class="fu">=</span> (,) <span class="fu">&lt;$&gt;</span> <span class="dt">Just</span> <span class="dv">1</span> <span class="fu">&lt;*&gt;</span> <span class="dt">Just</span> <span class="dv">2</span>
+    c <span class="fu">=</span> <span class="dt">Just</span> (<span class="kw">let</span> x <span class="fu">=</span> <span class="dv">1</span> <span class="kw">in</span> \y <span class="ot">-&gt;</span> (x,y)) <span class="fu">&lt;*&gt;</span> <span class="dt">Just</span> <span class="dv">2</span>
+    c <span class="fu">=</span> <span class="dt">Just</span> (<span class="kw">let</span> x <span class="fu">=</span> <span class="dv">1</span>
+                  y <span class="fu">=</span> <span class="dv">2</span> <span class="kw">in</span> (x,y))
+    c <span class="fu">=</span> <span class="dt">Just</span> (<span class="dv">1</span>,<span class="dv">2</span>)</code></pre>
+</section>
+</section>
+<section id="alternative" class="level1">
+<h1>Alternative</h1>
+<section id="typeclass-definition" class="level2">
+<h2>Typeclass definition</h2>
+<p>With this, we have the ability to take the first thing that works.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> <span class="dt">Alternative</span> f <span class="kw">where</span>
+    <span class="co">-- | The identity of &#39;&lt;|&gt;&#39;</span>
+<span class="ot">    empty ::</span> f a
+    <span class="co">-- | An associative binary operation</span>
+<span class="ot">    (&lt;|&gt;) ::</span> f a <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f a
+
+<span class="kw">instance</span> <span class="dt">Alternative</span> <span class="dt">Maybe</span> <span class="kw">where</span>
+    empty <span class="fu">=</span> <span class="dt">Nothing</span>
+    <span class="dt">Nothing</span> <span class="fu">&lt;|&gt;</span> right <span class="fu">=</span> right
+    left    <span class="fu">&lt;|&gt;</span> _     <span class="fu">=</span> left</code></pre>
+<p>Which is to say &quot;if we don't have anything yet, try the next thing&quot;</p>
+</section>
+<section id="blunt-example" class="level2">
+<h2>Blunt example</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">example <span class="fu">=</span> <span class="dt">Nothing</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">3</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Nothing</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">2</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">1</span>
+example <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">3</span></code></pre>
+</section>
+<section id="repeat-a-b-c" class="level2">
+<h2>Repeat a, b, c</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> <span class="kw">do</span>
+    putStr <span class="st">&quot;a: &quot;</span>
+    a&#39; <span class="ot">&lt;-</span> getLine
+    <span class="kw">let</span> a <span class="fu">=</span> readMaybe<span class="ot"> a&#39; ::</span> <span class="dt">Maybe</span> <span class="dt">Int</span>
+    putStr <span class="st">&quot;b: &quot;</span>
+    b&#39; <span class="ot">&lt;-</span> getLine
+    <span class="kw">let</span> b <span class="fu">=</span> readMaybe<span class="ot"> b&#39; ::</span> <span class="dt">Maybe</span> <span class="dt">Int</span>
+    <span class="kw">let</span> c <span class="fu">=</span> a <span class="fu">&lt;|&gt;</span> empty <span class="fu">&lt;|&gt;</span> b
+    putStr <span class="st">&quot;c: &quot;</span>
+    putStrLn <span class="fu">$</span> show c</code></pre>
+<ul>
+<li>When <code>a</code> is <code>Just 1</code>, no matter what <code>b</code> is, <code>c</code> is <code>Just 1</code>.</li>
+<li>When <code>a</code> is <code>Nothing</code>, and <code>b</code> is <code>Just 2</code>, <code>c</code> is <code>Just 2</code>.</li>
+<li>When <code>a</code> is <code>Nothing</code>, <code>b</code> is <code>Nothing</code>, then <code>c</code> is <code>Nothing</code>.</li>
+<li><code>empty</code> is synonymous to <code>Nothing</code> here.</li>
+</ul>
+</section>
+<section id="evaluate-the-alternative" class="level2">
+<h2>Evaluate the alternative</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">example2 <span class="fu">=</span> <span class="dt">Nothing</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Nothing</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">3</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">4</span>
+example2 <span class="fu">=</span>             <span class="dt">Nothing</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">3</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">4</span>
+example2 <span class="fu">=</span>                         <span class="dt">Just</span> <span class="dv">3</span> <span class="fu">&lt;|&gt;</span> <span class="dt">Just</span> <span class="dv">4</span>
+example2 <span class="fu">=</span>                         <span class="dt">Just</span> <span class="dv">3</span></code></pre>
+</section>
+</section>
+<section id="where-this-leads" class="level1">
+<h1>Where this leads</h1>
+<p>So, after all these wonderful concepts have been discussed, where are we heading with this?</p>
+<p>We can use Currying, Applicatives, and Alternatives to parse JSON documents and get the first <em>reasonable</em> value.</p>
+</section>
+<section id="aeson" class="level1">
+<h1>Aeson</h1>
+<section id="it-is-a-library" class="level2">
+<h2>It is a library</h2>
+<p>Aeson lets us encode and decode our data types with JSON.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Person</span> <span class="fu">=</span> <span class="dt">Person</span>
+    {<span class="ot"> name ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> age  ::</span> <span class="dt">Int</span>
+    } <span class="kw">deriving</span> <span class="dt">Show</span>
+<span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Person</span> <span class="kw">where</span>
+    parseJSON (<span class="dt">Object</span> v) <span class="fu">=</span> <span class="dt">Person</span> <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;name&quot;</span> <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;age&quot;</span>
+    <span class="co">-- A non-Object value is of the wrong type, so fail.</span>
+    parseJSON _          <span class="fu">=</span> mzero
+<span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Person</span> <span class="kw">where</span>
+    toJSON (<span class="dt">Person</span> name age) <span class="fu">=</span> object [<span class="st">&quot;name&quot;</span> <span class="fu">.=</span> name, <span class="st">&quot;age&quot;</span> <span class="fu">.=</span> age]
+<span class="co">-- (.:) and (.=) are custom aeson infix operators</span>
+<span class="fu">&gt;&gt;&gt;</span> decode <span class="st">&quot;{\&quot;name\&quot;:\&quot;Joe\&quot;,\&quot;age\&quot;:12}&quot;</span><span class="ot"> ::</span> <span class="dt">Maybe</span> <span class="dt">Person</span>
+<span class="dt">Just</span> (<span class="dt">Person</span> {name <span class="fu">=</span> <span class="st">&quot;Joe&quot;</span>, age <span class="fu">=</span> <span class="dv">12</span>})</code></pre>
+<p>See the Currying and Applicative being used?</p>
+</section>
+<section id="curry-and-applicative" class="level2">
+<h2>Curry and Applicative</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Person</span> <span class="fu">=</span> <span class="dt">Person</span> <span class="dt">Text</span> <span class="dt">Int</span>
+<span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Person</span> <span class="kw">where</span>
+    parseJSON (<span class="dt">Object</span> v) <span class="fu">=</span> <span class="dt">Person</span> <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;name&quot;</span> <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;age&quot;</span>
+<span class="co">-- In this case, v .: &quot;name&quot; is :: Parser Text</span>
+<span class="co">-- In this case, v .: &quot;age&quot;  is :: Parser Int</span>
+<span class="co">-- Parser is a member of the Applicative typeclass and</span>
+<span class="co">--   acts much like Maybe</span>
+<span class="dt">Person</span><span class="ot"> ::</span>  <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Person</span>
+<span class="dt">Person</span> <span class="st">&quot;Joe&quot;</span><span class="ot">    ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Person</span>
+<span class="dt">Person</span> <span class="st">&quot;Joe&quot;</span> <span class="dv">12</span><span class="ot"> ::</span>        <span class="dt">Person</span></code></pre>
+</section>
+<section id="what-about-sum-types" class="level2">
+<h2>What about sum types?</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Color</span> <span class="fu">=</span> <span class="dt">ARGB</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span>
+           <span class="fu">|</span> <span class="dt">RGB</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span>
+           <span class="fu">|</span> <span class="dt">HSV</span> <span class="dt">Float</span> <span class="dt">Float</span> <span class="dt">Float</span>
+           <span class="fu">|</span> <span class="dt">CMYK</span> <span class="dt">Float</span> <span class="dt">Float</span> <span class="dt">Float</span> <span class="dt">Float</span></code></pre>
+<p>Some try to go for something like..</p>
+<pre class="sourceCode json"><code class="sourceCode json"><span class="fu">{</span><span class="dt">&quot;type&quot;</span><span class="fu">:</span><span class="st">&quot;argb&quot;</span><span class="fu">,</span><span class="dt">&quot;value&quot;</span><span class="fu">:{</span><span class="dt">&quot;alpha&quot;</span><span class="fu">:</span><span class="dv">255</span><span class="fu">,</span><span class="dt">&quot;red&quot;</span><span class="fu">:</span><span class="dv">128</span><span class="fu">,</span><span class="dt">&quot;green&quot;</span><span class="fu">:</span><span class="dv">195</span><span class="fu">,</span><span class="dt">&quot;blue&quot;</span><span class="fu">:</span><span class="dv">237</span><span class="fu">}}</span>
+<span class="fu">{</span><span class="dt">&quot;type&quot;</span><span class="fu">:</span><span class="st">&quot;hsv&quot;</span><span class="fu">,</span><span class="dt">&quot;value&quot;</span><span class="fu">:{</span><span class="dt">&quot;hue&quot;</span><span class="fu">:</span><span class="fl">203.12</span><span class="fu">,</span><span class="dt">&quot;saturation&quot;</span><span class="fu">:</span><span class="fl">75.17</span><span class="fu">,</span><span class="dt">&quot;value&quot;</span><span class="fu">:</span><span class="fl">71.57</span><span class="fu">}}</span></code></pre>
+<p>But doesn't that seem a little clunky..?</p>
+</section>
+<section id="encoding-sum-types" class="level2">
+<h2>Encoding sum types</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Color</span> <span class="fu">=</span> <span class="dt">ARGB</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span>  <span class="fu">|</span> <span class="dt">RGB</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span>
+           <span class="fu">|</span> <span class="dt">HSV</span> <span class="dt">Float</span> <span class="dt">Float</span> <span class="dt">Float</span> <span class="fu">|</span> <span class="dt">CMYK</span> <span class="dt">Float</span> <span class="dt">Float</span> <span class="dt">Float</span> <span class="dt">Float</span>
+<span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Color</span> <span class="kw">where</span>
+    toJSON (<span class="dt">ARGB</span> a r g b) <span class="fu">=</span> object
+        [<span class="st">&quot;alpha&quot;</span> <span class="fu">.=</span> a, <span class="st">&quot;red&quot;</span> <span class="fu">.=</span> r, <span class="st">&quot;green&quot;</span> <span class="fu">.=</span> g, <span class="st">&quot;blue&quot;</span> <span class="fu">.=</span> b]
+    toJSON (<span class="dt">RGB</span> r g b) <span class="fu">=</span> object
+        [<span class="st">&quot;red&quot;</span> <span class="fu">.=</span> r, <span class="st">&quot;green&quot;</span> <span class="fu">.=</span> g, <span class="st">&quot;blue&quot;</span> <span class="fu">.=</span> b]
+    toJSON (<span class="dt">HSV</span> h s v) <span class="fu">=</span> object
+        [<span class="st">&quot;hue&quot;</span> <span class="fu">.=</span> h, <span class="st">&quot;saturation&quot;</span> <span class="fu">.=</span> s, <span class="st">&quot;value&quot;</span> <span class="fu">.=</span> v]
+    toJSON (<span class="dt">CYMK</span> c y m k) <span class="fu">=</span> object
+        [<span class="st">&quot;cyan&quot;</span> <span class="fu">.=</span> c, <span class="st">&quot;yellow&quot;</span> <span class="fu">.=</span> y, <span class="st">&quot;magenta&quot;</span> <span class="fu">.=</span> m, <span class="st">&quot;key&quot;</span> <span class="fu">.=</span> k]
+encode <span class="fu">$</span> <span class="dt">ARGB</span> <span class="dv">255</span> <span class="dv">128</span> <span class="dv">195</span> <span class="dv">237</span>
+<span class="fu">&gt;&gt;&gt;</span> <span class="st">&quot;{\&quot;red\&quot;:128,\&quot;alpha\&quot;:255,\&quot;green\&quot;:195,\&quot;blue\&quot;:237}&quot;</span>
+encode <span class="fu">$</span> <span class="dt">HSV</span> <span class="fl">203.12</span> <span class="fl">75.17</span> <span class="fl">71.57</span>
+<span class="fu">&gt;&gt;&gt;</span> <span class="st">&quot;{\&quot;hue\&quot;:203.12,\&quot;saturation\&quot;:75.17,\&quot;value\&quot;:71.57}&quot;</span></code></pre>
+<p>We can do this, but can we recover which constructor to use? (ARGB vs RGB)</p>
+</section>
+<section id="what-about-alternative" class="level2">
+<h2>What about alternative?</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Color</span> <span class="kw">where</span>
+    parseJSON (<span class="dt">Object</span> v)
+        <span class="fu">=</span>   <span class="dt">ARGB</span> <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;alpha&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;red&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;green&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;blue&quot;</span>
+        <span class="fu">&lt;|&gt;</span> <span class="dt">RGB</span>  <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;red&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;green&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;blue&quot;</span>
+        <span class="fu">&lt;|&gt;</span> <span class="dt">HSV</span>  <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;hue&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;saturation&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;value&quot;</span>
+        <span class="fu">&lt;|&gt;</span> <span class="dt">CYMK</span> <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;cyan&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;yellow&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;magenta&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;key&quot;</span></code></pre>
+</section>
+<section id="demo-of-alternative" class="level2">
+<h2>Demo of alternative</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;&gt;&gt;</span> <span class="kw">let</span> json <span class="fu">=</span> <span class="st">&quot;{\&quot;red\&quot;:128,\&quot;alpha\&quot;:255,\&quot;green\&quot;:195,\&quot;blue\&quot;:237}&quot;</span>
+<span class="fu">&gt;&gt;&gt;</span> decode<span class="ot"> json ::</span> <span class="dt">Maybe</span> <span class="dt">Color</span>
+<span class="dt">Just</span> (<span class="dt">ARGB</span> <span class="dv">255</span> <span class="dv">128</span> <span class="dv">195</span> <span class="dv">237</span>)</code></pre>
+<p>Well look at that, we could recover the constructor! (ARGB)</p>
+<p>Though we do have a little redundancy with our implementation..</p>
+</section>
+<section id="slight-cleanup" class="level2">
+<h2>Slight cleanup</h2>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Color</span> <span class="kw">where</span>
+    parseJSON (<span class="dt">Object</span> v)
+        <span class="fu">=</span> empty
+        <span class="fu">&lt;|&gt;</span> <span class="kw">do</span> r <span class="ot">&lt;-</span> v <span class="fu">.:</span> <span class="st">&quot;red&quot;</span>
+               g <span class="ot">&lt;-</span> v <span class="fu">.:</span> <span class="st">&quot;green&quot;</span>
+               b <span class="ot">&lt;-</span> v <span class="fu">.:</span> <span class="st">&quot;blue&quot;</span>
+               <span class="kw">let</span> argb a <span class="fu">=</span> <span class="dt">ARGB</span> a r g b
+               (argb <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;alpha&quot;</span>) <span class="fu">&lt;|&gt;</span> (pure <span class="fu">$</span> <span class="dt">RGB</span> r g b)
+        <span class="fu">&lt;|&gt;</span> <span class="dt">HSV</span>  <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;hue&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;saturation&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;value&quot;</span>
+        <span class="fu">&lt;|&gt;</span> <span class="dt">CYMK</span> <span class="fu">&lt;$&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;cyan&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;yellow&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;magenta&quot;</span>
+                 <span class="fu">&lt;*&gt;</span> v <span class="fu">.:</span> <span class="st">&quot;key&quot;</span></code></pre>
+<p>This shares the <code>&quot;red&quot;</code>, <code>&quot;green&quot;</code>, and <code>&quot;blue&quot;</code> among both <code>RGB</code> and <code>ARGB</code> constructors for <code>Color</code>.</p>
+</section>
+</section>
+<section id="finale" class="level1">
+<h1>Finale</h1>
+<p>Let your Haskelling be practical.</p>
+<p>And with respect, live long and prosper.</p>
+<figure>
+<img src="images/spock.jpg" />
+</figure>
+</section>
+</div>
+
+<script src="reveal.js/lib/js/head.min.js"></script>
+<script src="reveal.js/js/reveal.js"></script>
+
+<script>
+  // Full list of configuration options available here:
+  // https://github.com/hakimel/reveal.js#configuration
+  Reveal.initialize({
+    controls: true,
+    progress: true,
+    history: true,
+    center: false,
+
+  // available themes are in /css/theme
+      theme: Reveal.getQueryHash().theme || 'black',
+  
+  // default/cube/page/concave/zoom/linear/fade/none
+      transition: Reveal.getQueryHash().transition || 'default',
+  
+  // Optional libraries used to extend on reveal.js
+  dependencies: [
+    { src: 'reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+    { src: 'reveal.js/plugin/markdown/showdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+    { src: 'reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+    { src: 'highlight/highlight.pack.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+    { src: 'reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+    { src: 'reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+    // { src: 'reveal.js/plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+  ]
+  });
+
+</script>
+
+</body>
+</html>
